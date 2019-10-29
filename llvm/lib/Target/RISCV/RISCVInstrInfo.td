@@ -656,6 +656,8 @@ def : InstAlias<"sfence.vma",     (SFENCE_VMA      X0, X0)>;
 def : InstAlias<"sfence.vma $rs", (SFENCE_VMA GPR:$rs, X0)>;
 
 let EmitPriority = 0 in {
+def : InstAlias<"lt $rd, (${rs1})",
+                (LT  GPR:$rd, GPR:$rs1, 0)>;
 def : InstAlias<"lb $rd, (${rs1})",
                 (LB  GPR:$rd, GPR:$rs1, 0)>;
 def : InstAlias<"lh $rd, (${rs1})",
@@ -667,6 +669,8 @@ def : InstAlias<"lbu $rd, (${rs1})",
 def : InstAlias<"lhu $rd, (${rs1})",
                 (LHU  GPR:$rd, GPR:$rs1, 0)>;
 
+def : InstAlias<"st $rs2, (${rs1})",
+                (ST  GPR:$rs2, GPR:$rs1, 0)>;
 def : InstAlias<"sb $rs2, (${rs1})",
                 (SB  GPR:$rs2, GPR:$rs1, 0)>;
 def : InstAlias<"sh $rs2, (${rs1})",
