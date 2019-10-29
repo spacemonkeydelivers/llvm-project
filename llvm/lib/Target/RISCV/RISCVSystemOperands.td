@@ -201,6 +201,9 @@ def : SysReg<"mcause", 0x342>;
 def : SysReg<"mtval", 0x343>;
 def : SysReg<"mip", 0x344>;
 
+def : SysReg<"tags", 0x345>;
+def : SysReg<"rnd", 0x346>;
+
 //===----------------------------------
 // Machine Protection and Translation
 //===----------------------------------

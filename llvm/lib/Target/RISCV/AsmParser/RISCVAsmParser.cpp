@@ -1732,6 +1732,9 @@ bool RISCVAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
   case RISCV::PseudoLA_TLS_GD:
     emitLoadTLSGDAddress(Inst, IDLoc, Out);
     return false;
+  case RISCV::PseudoLT:
+    emitLoadStoreSymbol(Inst, RISCV::LT, IDLoc, Out, /*HasTmpReg=*/false);
+    return false;
   case RISCV::PseudoLB:
     emitLoadStoreSymbol(Inst, RISCV::LB, IDLoc, Out, /*HasTmpReg=*/false);
     return false;
@@ -1758,6 +1761,9 @@ bool RISCVAsmParser::processInstruction(MCInst &Inst, SMLoc IDLoc,
     return false;
   case RISCV::PseudoFLD:
     emitLoadStoreSymbol(Inst, RISCV::FLD, IDLoc, Out, /*HasTmpReg=*/true);
+    return false;
+  case RISCV::PseudoST:
+    emitLoadStoreSymbol(Inst, RISCV::ST, IDLoc, Out, /*HasTmpReg=*/true);
     return false;
   case RISCV::PseudoSB:
     emitLoadStoreSymbol(Inst, RISCV::SB, IDLoc, Out, /*HasTmpReg=*/true);

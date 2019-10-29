@@ -367,12 +367,14 @@ def BGE  : BranchCC_rri<0b101, "bge">;
 def BLTU : BranchCC_rri<0b110, "bltu">;
 def BGEU : BranchCC_rri<0b111, "bgeu">;
 
+def LT  : Load_ri<0b111, "l1">;
 def LB  : Load_ri<0b000, "lb">;
 def LH  : Load_ri<0b001, "lh">;
 def LW  : Load_ri<0b010, "lw">;
 def LBU : Load_ri<0b100, "lbu">;
 def LHU : Load_ri<0b101, "lhu">;
 
+def ST : Store_rri<0b111, "st">;
 def SB : Store_rri<0b000, "sb">;
 def SH : Store_rri<0b001, "sh">;
 def SW : Store_rri<0b010, "sw">;
@@ -536,12 +538,14 @@ let hasSideEffects = 0, mayLoad = 0, mayStore = 0, Size = 32,
 def PseudoLI : Pseudo<(outs GPR:$rd), (ins ixlenimm_li:$imm), [],
                       "li", "$rd, $imm">;
 
+def PseudoLT  : PseudoLoad<"lt">;
 def PseudoLB  : PseudoLoad<"lb">;
 def PseudoLBU : PseudoLoad<"lbu">;
 def PseudoLH  : PseudoLoad<"lh">;
 def PseudoLHU : PseudoLoad<"lhu">;
 def PseudoLW  : PseudoLoad<"lw">;
 
+def PseudoST  : PseudoStore<"st">;
 def PseudoSB  : PseudoStore<"sb">;
 def PseudoSH  : PseudoStore<"sh">;
 def PseudoSW  : PseudoStore<"sw">;
