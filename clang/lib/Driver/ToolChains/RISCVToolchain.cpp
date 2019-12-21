@@ -99,6 +99,11 @@ void RISCV::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back(Args.MakeArgString("--sysroot=" + D.SysRoot));
 
   std::string Linker = getToolChain().GetProgramPath(getShortName());
+  if (Args.hasArg(options::OPT_LinkerBin)) {
+    Arg *LinkerBinArg = Args.getLastArgNoClaim(options::OPT_LinkerBin);
+    // FIXME: check if file exists?
+    Linker = LinkerBinArg->getValue();
+  }
 
   bool WantCRTs =
       !Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles);

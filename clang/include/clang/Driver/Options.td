@@ -475,6 +475,8 @@ def Xopenmp_target_EQ : JoinedAndSeparate<["-"], "Xopenmp-target=">,
 def z : Separate<["-"], "z">, Flags<[LinkerInput, RenderAsInput]>,
   HelpText<"Pass -z <arg> to the linker">, MetaVarName<"<arg>">,
   Group<Link_Group>;
+def LinkerBin : Separate<["-"], "LinkerBin">,
+  HelpText<"Use <arg> as linker bin">, MetaVarName<"<arg>">;
 def Xlinker : Separate<["-"], "Xlinker">, Flags<[LinkerInput, RenderAsInput]>,
   HelpText<"Pass <arg> to the linker">, MetaVarName<"<arg>">,
   Group<Link_Group>;
