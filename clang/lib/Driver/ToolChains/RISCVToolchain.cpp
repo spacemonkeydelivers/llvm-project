@@ -10,6 +10,7 @@
 #include "CommonArgs.h"
 #include "InputInfo.h"
 #include "clang/Driver/Compilation.h"
+#include "clang/Driver/ToolChain.h"
 #include "clang/Driver/Options.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Support/FileSystem.h"
@@ -84,6 +85,11 @@ std::string RISCVToolChain::computeSysRoot() const {
     return std::string();
 
   return SysRootDir;
+}
+SanitizerMask RISCVToolChain::getSupportedSanitizers() const {
+  SanitizerMask Res = ToolChain::getSupportedSanitizers();
+  Res |= SanitizerKind::MemTag;
+  return Res;
 }
 
 void RISCV::Linker::ConstructJob(Compilation &C, const JobAction &JA,
