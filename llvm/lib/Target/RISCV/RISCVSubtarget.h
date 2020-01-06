@@ -30,6 +30,7 @@ class StringRef;
 
 class RISCVSubtarget : public RISCVGenSubtargetInfo {
   virtual void anchor();
+  bool HasExtMtags = false;
   bool HasStdExtM = false;
   bool HasStdExtA = false;
   bool HasStdExtF = false;
@@ -75,6 +76,7 @@ public:
   const SelectionDAGTargetInfo *getSelectionDAGInfo() const override {
     return &TSInfo;
   }
+  bool hasExtMtags() const { return HasExtMtags; }
   bool hasStdExtM() const { return HasStdExtM; }
   bool hasStdExtA() const { return HasStdExtA; }
   bool hasStdExtF() const { return HasStdExtF; }

@@ -42,6 +42,9 @@ static StringRef getExtensionType(StringRef Ext) {
 }
 
 static bool isSupportedExtension(StringRef Ext) {
+  if (Ext == "xbeehive") {
+    return true;
+  }
   // LLVM does not support "sx", "s" nor "x" extensions.
   return false;
 }

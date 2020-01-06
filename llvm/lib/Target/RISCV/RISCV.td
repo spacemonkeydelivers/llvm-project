@@ -12,6 +12,12 @@ include "llvm/Target/Target.td"
 // RISC-V subtarget features and instruction predicates.
 //===----------------------------------------------------------------------===//
 
+def FeatureMtags
+    : SubtargetFeature<"xbeehive", "HasExtMtags", "true",
+                       "'Mtags' (memory tagging extentions)">;
+def HasExtMtags : Predicate<"Subtarget->HasExtMtags()">,
+                           AssemblerPredicate<"FeatureMtags">;
+
 def FeatureStdExtM
     : SubtargetFeature<"m", "HasStdExtM", "true",
                        "'M' (Integer Multiplication and Division)">;
