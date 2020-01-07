@@ -1102,6 +1102,12 @@ def SetMemoryTagZero : Pseudo<(outs),
                               (ins GPR:$rs1, simm12:$rs2), []>;
 def : Pat<(int_riscv_settag_zero GPR:$rs1, i32:$rs2), (SetMemoryTagZero $rs1, $rs2)>;
 
+let usesCustomInserter = 1, hasSideEffects = 0,
+mayLoad = 0, mayStore = 0, hasNoSchedulingInfo = 1 in
+def TagPointer : Pseudo<(outs GPR:$rd),
+                        (ins GPR:$rs1, GPR:$rs2, GPR:$rs3), []>;
+def : Pat<(int_riscv_tagp GPR:$rs1, GPR:$rs2, i32:$rs3), (TagPointer $rs1, $rs2, $rs3)>;
+
 //===----------------------------------------------------------------------===//
 // Standard extensions
 //===----------------------------------------------------------------------===//

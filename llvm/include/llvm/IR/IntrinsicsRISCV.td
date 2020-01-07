@@ -86,7 +86,7 @@ def int_riscv_irg_sp   : Intrinsic<[llvm_ptr_ty], [llvm_i32_ty], [IntrInaccessib
 // When offset between ptr0 and baseptr is a compile time constant, this can be emitted as
 //   ADDG ptr1, baseptr, (ptr0 - baseptr), tag_offset
 // It is intended that ptr0 is an alloca address, and baseptr is the direct output of llvm.aarch64.irg.sp.
-def int_riscv_tagp : Intrinsic<[llvm_anyptr_ty], [LLVMMatchType<0>, llvm_ptr_ty, llvm_i64_ty], [IntrNoMem, ImmArg<2>]>;
+def int_riscv_tagp : Intrinsic<[llvm_anyptr_ty], [LLVMMatchType<0>, llvm_ptr_ty, llvm_i32_ty], [IntrNoMem, ImmArg<2>]>;
 
 // Update allocation tags for the memory range to match the tag in the pointer argument.
 def int_riscv_settag  : Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty], [IntrWriteMem, IntrArgMemOnly, NoCapture<0>, WriteOnly<0>]>;
