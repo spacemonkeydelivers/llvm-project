@@ -93,6 +93,7 @@ TargetPassConfig *RISCVTargetMachine::createPassConfig(PassManagerBase &PM) {
 void RISCVPassConfig::addIRPasses() {
   addPass(createAtomicExpandPass());
   TargetPassConfig::addIRPasses();
+  addPass(createRISCV64StackTaggingPass());
 }
 
 bool RISCVPassConfig::addInstSelector() {
