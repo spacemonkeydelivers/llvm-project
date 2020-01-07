@@ -178,6 +178,8 @@ RISCVTargetLowering::RISCVTargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BlockAddress, XLenVT, Custom);
   setOperationAction(ISD::ConstantPool, XLenVT, Custom);
 
+  setOperationAction(ISD::Constant, MVT::i64, Custom);
+
   setOperationAction(ISD::GlobalTLSAddress, XLenVT, Custom);
 
   // TODO: On M-mode only targets, the cycle[h] CSR may not be present.
@@ -1116,6 +1118,94 @@ MachineBasicBlock *emitReadCycleWidePseudo(MachineInstr &MI,
   return DoneMBB;
 }
 
+MachineBasicBlock *emitInsertRandomTagPseudo(MachineInstr &MI,
+                                             MachineBasicBlock *BB) {
+  assert(MI.getOpcode() == RISCV::InsertRandomTag && "Unexpected instruction");
+
+  // To read the 64-bit cycle CSR on a 32-bit target, we read the two halves.
+  // Should the count have wrapped while it was being read, we need to try
+  // again.
+  // ...
+  // read:
+  // rdcycleh x3 # load high word of cycle
+  // rdcycle  x2 # load low word of cycle
+  // rdcycleh x4 # load high word of cycle
+  // bne x3, x4, read # check if high word reads match, otherwise try again
+  // ...
+
+  MachineFunction &MF = *BB->getParent();
+  const BasicBlock *LLVM_BB = BB->getBasicBlock();
+  MachineFunction::iterator It = ++BB->getIterator();
+
+  MachineBasicBlock *LoopMBB = MF.CreateMachineBasicBlock(LLVM_BB);
+  MF.insert(It, LoopMBB);
+
+  MachineBasicBlock *DoneMBB = MF.CreateMachineBasicBlock(LLVM_BB);
+  MF.insert(It, DoneMBB);
+
+  // Transfer the remainder of BB and its successor edges to DoneMBB.
+  DoneMBB->splice(DoneMBB->begin(), BB,
+                  std::next(MachineBasicBlock::iterator(MI)), BB->end());
+  DoneMBB->transferSuccessorsAndUpdatePHIs(BB);
+
+  BB->addSuccessor(LoopMBB);
+
+  MachineRegisterInfo &RegInfo = MF.getRegInfo();
+  unsigned ReadAgainReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+
+
+  unsigned dst = MI.getOperand(0).getReg();
+  unsigned src1 = MI.getOperand(1).getReg();
+  unsigned src2 = MI.getOperand(2).getReg();
+  DebugLoc DL = MI.getDebugLoc();
+
+  const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+
+
+
+  unsigned rndReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::CSRRS), rndReg)
+      .addImm(RISCVSysReg::lookupSysRegByName("TAGS")->Encoding)
+      .addReg(RISCV::X0);
+  unsigned rndAndedReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::ANDI), rndAndedReg)
+      .addReg(rndReg)
+      .addImm(0xf);
+  
+  unsigned oneReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::ADDI), oneReg)
+      .addReg(RISCV::X0)
+      .addImm(1);
+  unsigned oneShiftedReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::SLL), oneShiftedReg)
+      .addReg(oneReg)
+      .addReg(rndAndedReg);
+  unsigned existsReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::AND), existsReg)
+      .addReg(oneShiftedReg)
+      .addReg(src2);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::BNE))
+      .addReg(RISCV::X0)
+      .addReg(existsReg)
+      .addMBB(LoopMBB);
+
+  MachineBasicBlock::iterator Pos = DoneMBB->begin();
+  unsigned tagShiftedReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(*DoneMBB, Pos, DL, TII->get(RISCV::SLLI), tagShiftedReg)
+      .addReg(rndReg)
+      .addImm(26);
+  BuildMI(*DoneMBB, Pos, DL, TII->get(RISCV::OR), dst)
+      .addReg(src1)
+      .addReg(tagShiftedReg);
+
+  LoopMBB->addSuccessor(DoneMBB);
+  LoopMBB->addSuccessor(LoopMBB);
+
+  MI.eraseFromParent();
+
+  return DoneMBB;
+}
+
 static MachineBasicBlock *emitSplitF64Pseudo(MachineInstr &MI,
                                              MachineBasicBlock *BB) {
   assert(MI.getOpcode() == RISCV::SplitF64Pseudo && "Unexpected instruction");
@@ -1324,6 +1414,8 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     assert(!Subtarget.is64Bit() &&
            "ReadCycleWrite is only to be used on riscv32");
     return emitReadCycleWidePseudo(MI, BB);
+  case RISCV::InsertRandomTag:
+    return emitInsertRandomTagPseudo(MI, BB);
   case RISCV::Select_GPR_Using_CC_GPR:
   case RISCV::Select_FPR32_Using_CC_GPR:
   case RISCV::Select_FPR64_Using_CC_GPR:
@@ -2395,6 +2487,8 @@ const char *RISCVTargetLowering::getTargetNodeName(unsigned Opcode) const {
     return "RISCVISD::FMV_X_ANYEXTW_RV64";
   case RISCVISD::READ_CYCLE_WIDE:
     return "RISCVISD::READ_CYCLE_WIDE";
+  case RISCVISD::INSERT_RANDOM_TAG:
+    return "RISCVISD::INSERT_RANDOM_TAG";
   }
   return nullptr;
 }
