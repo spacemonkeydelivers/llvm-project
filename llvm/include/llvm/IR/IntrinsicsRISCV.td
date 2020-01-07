@@ -89,11 +89,11 @@ def int_riscv_irg_sp   : Intrinsic<[llvm_ptr_ty], [llvm_i32_ty], [IntrInaccessib
 def int_riscv_tagp : Intrinsic<[llvm_anyptr_ty], [LLVMMatchType<0>, llvm_ptr_ty, llvm_i64_ty], [IntrNoMem, ImmArg<2>]>;
 
 // Update allocation tags for the memory range to match the tag in the pointer argument.
-def int_riscv_settag  : Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty], [IntrWriteMem, IntrArgMemOnly, NoCapture<0>, WriteOnly<0>]>;
+def int_riscv_settag  : Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty], [IntrWriteMem, IntrArgMemOnly, NoCapture<0>, WriteOnly<0>]>;
 
 // Update allocation tags for the memory range to match the tag in the pointer argument,
 // and set memory contents to zero.
-def int_riscv_settag_zero  : Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty], [IntrWriteMem, IntrArgMemOnly, NoCapture<0>, WriteOnly<0>]>;
+def int_riscv_settag_zero  : Intrinsic<[], [llvm_ptr_ty, llvm_i32_ty], [IntrWriteMem, IntrArgMemOnly, NoCapture<0>, WriteOnly<0>]>;
 
 // Update allocation tags for 16-aligned, 16-sized memory region, and store a pair 8-byte values.
 def int_riscv_stgp  : Intrinsic<[], [llvm_ptr_ty, llvm_i64_ty, llvm_i64_ty], [IntrWriteMem, IntrArgMemOnly, NoCapture<0>, WriteOnly<0>]>;

@@ -1090,6 +1090,18 @@ def InsertRandomTag : Pseudo<(outs GPR:$rd),
 def : Pat<(int_riscv_irg GPR:$rs1, i32:$rs2), (InsertRandomTag $rs1, $rs2)>;
 def : Pat<(int_riscv_irg_sp i32:$rs2), (InsertRandomTag X2, $rs2)>;
 
+let usesCustomInserter = 1, hasSideEffects = 0,
+mayLoad = 0, mayStore = 1, hasNoSchedulingInfo = 1 in
+def SetMemoryTag : Pseudo<(outs),
+                          (ins GPR:$rs1, simm12:$rs2), []>;
+def : Pat<(int_riscv_settag GPR:$rs1, i32:$rs2), (SetMemoryTag $rs1, $rs2)>;
+
+let usesCustomInserter = 1, hasSideEffects = 0,
+mayLoad = 0, mayStore = 1, hasNoSchedulingInfo = 1 in
+def SetMemoryTagZero : Pseudo<(outs),
+                              (ins GPR:$rs1, simm12:$rs2), []>;
+def : Pat<(int_riscv_settag_zero GPR:$rs1, i32:$rs2), (SetMemoryTagZero $rs1, $rs2)>;
+
 //===----------------------------------------------------------------------===//
 // Standard extensions
 //===----------------------------------------------------------------------===//

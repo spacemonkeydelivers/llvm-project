@@ -1116,6 +1116,81 @@ MachineBasicBlock *emitReadCycleWidePseudo(MachineInstr &MI,
   return DoneMBB;
 }
 
+MachineBasicBlock *emitSetMemoryTagPseudo(MachineInstr &MI,
+                                          MachineBasicBlock *BB,
+                                          bool zeroMem) {
+  assert(((MI.getOpcode() == RISCV::SetMemoryTag)
+        ||(MI.getOpcode() == RISCV::SetMemoryTagZero))
+           && "Unexpected instruction");
+
+  MachineFunction &MF = *BB->getParent();
+  const BasicBlock *LLVM_BB = BB->getBasicBlock();
+  MachineFunction::iterator It = ++BB->getIterator();
+
+  MachineBasicBlock *LoopMBB = MF.CreateMachineBasicBlock(LLVM_BB);
+  MF.insert(It, LoopMBB);
+
+  MachineBasicBlock *DoneMBB = MF.CreateMachineBasicBlock(LLVM_BB);
+  MF.insert(It, DoneMBB);
+
+  // Transfer the remainder of BB and its successor edges to DoneMBB.
+  DoneMBB->splice(DoneMBB->begin(), BB,
+                  std::next(MachineBasicBlock::iterator(MI)), BB->end());
+  DoneMBB->transferSuccessorsAndUpdatePHIs(BB);
+
+  BB->addSuccessor(LoopMBB);
+
+  MachineRegisterInfo &RegInfo = MF.getRegInfo();
+  unsigned basePtr = MI.getOperand(0).getReg();
+  unsigned tagSize = MI.getOperand(1).getImm();
+  const unsigned tagSizeBit = 16;
+  const unsigned stThrsh = 4;
+
+  assert(!(tagSize % tagSizeBit));
+  unsigned num = tagSize / tagSizeBit;
+
+  bool thrshExceeded = stThrsh < num;
+  
+  DebugLoc DL = MI.getDebugLoc();
+  const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+  
+  unsigned tmpTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::SRLI), tmpTagReg)
+      .addReg(basePtr)
+      .addImm(26);
+  unsigned tagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::ANDI), tagReg)
+      .addReg(tmpTagReg)
+      .addImm(0xf);
+
+  if (thrshExceeded) {
+    
+    LoopMBB->addSuccessor(LoopMBB);
+  } else {
+    for (int i = 0; i < num; i++) {
+      BuildMI(LoopMBB, DL, TII->get(RISCV::ST))
+          .addReg(tagReg)
+          .addReg(basePtr)
+          .addImm(i * tagSize);
+    }
+  }
+
+  LoopMBB->addSuccessor(DoneMBB);
+#if 0
+  MachineBasicBlock::iterator Pos = DoneMBB->begin();
+  unsigned tagShiftedReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(*DoneMBB, Pos, DL, TII->get(RISCV::SLLI), tagShiftedReg)
+      .addReg(rndReg)
+      .addImm(26);
+  BuildMI(*DoneMBB, Pos, DL, TII->get(RISCV::OR), dst)
+      .addReg(src1)
+      .addReg(tagShiftedReg);
+#endif
+
+  MI.eraseFromParent();
+
+  return DoneMBB;
+}
 
 MachineBasicBlock *emitInsertRandomTagPseudo(MachineInstr &MI,
                                              MachineBasicBlock *BB) {
@@ -1396,6 +1471,10 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     assert(!Subtarget.is64Bit() &&
            "ReadCycleWrite is only to be used on riscv32");
     return emitReadCycleWidePseudo(MI, BB);
+  case RISCV::SetMemoryTagZero:
+    return emitSetMemoryTagPseudo(MI, BB, true);
+  case RISCV::SetMemoryTag:
+    return emitSetMemoryTagPseudo(MI, BB, false);
   case RISCV::InsertRandomTag:
     return emitInsertRandomTagPseudo(MI, BB);
   case RISCV::Select_GPR_Using_CC_GPR:
