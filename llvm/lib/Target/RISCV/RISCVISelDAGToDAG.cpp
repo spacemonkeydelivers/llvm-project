@@ -157,11 +157,6 @@ void RISCVDAGToDAGISel::Select(SDNode *Node) {
     }
     break;
   }
-  case RISCVISD::INSERT_RANDOM_TAG:
-    ReplaceNode(Node, CurDAG->getMachineNode(RISCV::InsertRandomTag, DL, MVT::i32,
-                                             MVT::i32, MVT::Other,
-                                             Node->getOperand(0)));
-    return;
   case RISCVISD::READ_CYCLE_WIDE:
     assert(!Subtarget->is64Bit() && "READ_CYCLE_WIDE is only used on riscv32");
 

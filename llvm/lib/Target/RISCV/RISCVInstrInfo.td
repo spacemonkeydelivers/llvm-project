@@ -1087,7 +1087,8 @@ let usesCustomInserter = 1, hasSideEffects = 0,
 mayLoad = 1, mayStore = 1, hasNoSchedulingInfo = 1 in
 def InsertRandomTag : Pseudo<(outs GPR:$rd),
                             (ins GPR:$rs1, GPR:$rs2), []>;
-def : Pat<(int_riscv_irg GPR:$rs1, GPR:$rs2), (InsertRandomTag $rs1, $rs2)>;
+def : Pat<(int_riscv_irg GPR:$rs1, i32:$rs2), (InsertRandomTag $rs1, $rs2)>;
+def : Pat<(int_riscv_irg_sp i32:$rs2), (InsertRandomTag X2, $rs2)>;
 
 //===----------------------------------------------------------------------===//
 // Standard extensions
