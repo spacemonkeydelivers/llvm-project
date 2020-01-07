@@ -1054,6 +1054,68 @@ unsigned RISCVTargetLowering::ComputeNumSignBitsForTargetNode(
   return 1;
 }
 
+MachineBasicBlock *emitSetMemoryTagPairPseudo(MachineInstr &MI,
+                                              MachineBasicBlock *BB) {
+  assert(MI.getOpcode() == RISCV::ReadCycleWide && "Unexpected instruction");
+
+  // To read the 64-bit cycle CSR on a 32-bit target, we read the two halves.
+  // Should the count have wrapped while it was being read, we need to try
+  // again.
+  // ...
+  // read:
+  // rdcycleh x3 # load high word of cycle
+  // rdcycle  x2 # load low word of cycle
+  // rdcycleh x4 # load high word of cycle
+  // bne x3, x4, read # check if high word reads match, otherwise try again
+  // ...
+
+  MachineFunction &MF = *BB->getParent();
+  const BasicBlock *LLVM_BB = BB->getBasicBlock();
+  MachineFunction::iterator It = ++BB->getIterator();
+
+  MachineBasicBlock *LoopMBB = MF.CreateMachineBasicBlock(LLVM_BB);
+  MF.insert(It, LoopMBB);
+
+  MachineBasicBlock *DoneMBB = MF.CreateMachineBasicBlock(LLVM_BB);
+  MF.insert(It, DoneMBB);
+
+  // Transfer the remainder of BB and its successor edges to DoneMBB.
+  DoneMBB->splice(DoneMBB->begin(), BB,
+                  std::next(MachineBasicBlock::iterator(MI)), BB->end());
+  DoneMBB->transferSuccessorsAndUpdatePHIs(BB);
+
+  BB->addSuccessor(LoopMBB);
+
+  MachineRegisterInfo &RegInfo = MF.getRegInfo();
+  unsigned ReadAgainReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  unsigned LoReg = MI.getOperand(0).getReg();
+  unsigned HiReg = MI.getOperand(1).getReg();
+  DebugLoc DL = MI.getDebugLoc();
+
+  const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
+  BuildMI(LoopMBB, DL, TII->get(RISCV::CSRRS), HiReg)
+      .addImm(RISCVSysReg::lookupSysRegByName("CYCLEH")->Encoding)
+      .addReg(RISCV::X0);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::CSRRS), LoReg)
+      .addImm(RISCVSysReg::lookupSysRegByName("CYCLE")->Encoding)
+      .addReg(RISCV::X0);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::CSRRS), ReadAgainReg)
+      .addImm(RISCVSysReg::lookupSysRegByName("CYCLEH")->Encoding)
+      .addReg(RISCV::X0);
+
+  BuildMI(LoopMBB, DL, TII->get(RISCV::BNE))
+      .addReg(HiReg)
+      .addReg(ReadAgainReg)
+      .addMBB(LoopMBB);
+
+  LoopMBB->addSuccessor(LoopMBB);
+  LoopMBB->addSuccessor(DoneMBB);
+
+  MI.eraseFromParent();
+
+  return DoneMBB;
+}
+
 MachineBasicBlock *emitTagPointerPseudo(MachineInstr &MI,
                                            MachineBasicBlock *BB) {
   assert(MI.getOpcode() == RISCV::ReadCycleWide && "Unexpected instruction");
@@ -1533,6 +1595,8 @@ RISCVTargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     assert(!Subtarget.is64Bit() &&
            "ReadCycleWrite is only to be used on riscv32");
     return emitReadCycleWidePseudo(MI, BB);
+  case RISCV::SetMemoryTagPair:
+    return emitSetMemoryTagPairPseudo(MI, BB);
   case RISCV::TagPointer:
     return emitTagPointerPseudo(MI, BB);
   case RISCV::SetMemoryTagZero:
