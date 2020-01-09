@@ -1250,6 +1250,9 @@ MachineBasicBlock *emitSetMemoryTagPseudo(MachineInstr &MI,
   MachineFunction &MF = *BB->getParent();
   const BasicBlock *LLVM_BB = BB->getBasicBlock();
   MachineFunction::iterator It = ++BB->getIterator();
+  
+  MachineBasicBlock *PreLoopMBB = MF.CreateMachineBasicBlock(LLVM_BB);
+  MF.insert(It, PreLoopMBB);
 
   MachineBasicBlock *LoopMBB = MF.CreateMachineBasicBlock(LLVM_BB);
   MF.insert(It, LoopMBB);
@@ -1262,7 +1265,7 @@ MachineBasicBlock *emitSetMemoryTagPseudo(MachineInstr &MI,
                   std::next(MachineBasicBlock::iterator(MI)), BB->end());
   DoneMBB->transferSuccessorsAndUpdatePHIs(BB);
 
-  BB->addSuccessor(LoopMBB);
+  BB->addSuccessor(PreLoopMBB);
 
   MachineRegisterInfo &RegInfo = MF.getRegInfo();
   unsigned basePtr = MI.getOperand(0).getReg();
@@ -1279,25 +1282,96 @@ MachineBasicBlock *emitSetMemoryTagPseudo(MachineInstr &MI,
   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
   
   unsigned tmpTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-  BuildMI(LoopMBB, DL, TII->get(RISCV::SRLI), tmpTagReg)
+  BuildMI(PreLoopMBB, DL, TII->get(RISCV::SRLI), tmpTagReg)
       .addReg(basePtr)
       .addImm(26);
   unsigned tagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-  BuildMI(LoopMBB, DL, TII->get(RISCV::ANDI), tagReg)
+  BuildMI(PreLoopMBB, DL, TII->get(RISCV::ANDI), tagReg)
       .addReg(tmpTagReg)
       .addImm(0xf);
 
   if (thrshExceeded) {
-    
+    unsigned loopLimitReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+    BuildMI(PreLoopMBB, DL, TII->get(RISCV::ADDI), loopLimitReg)
+        .addReg(RISCV::X0)
+        .addImm(tagSize);
+    unsigned initialCntReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+    BuildMI(PreLoopMBB, DL, TII->get(RISCV::ADDI), initialCntReg)
+        .addReg(RISCV::X0)
+        .addImm(0);
+
+    unsigned actualCntReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+    unsigned realCntReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+    BuildMI(LoopMBB, DL, TII->get(RISCV::PHI), realCntReg)
+        .addReg(initialCntReg)
+        .addMBB(PreLoopMBB)
+        .addReg(actualCntReg)
+        .addMBB(LoopMBB);
+
+    unsigned tagPtrReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+    BuildMI(LoopMBB, DL, TII->get(RISCV::ADD), tagPtrReg)
+        .addReg(basePtr)
+        .addReg(realCntReg);
+      
+    BuildMI(LoopMBB, DL, TII->get(RISCV::ST))
+        .addReg(tagReg)
+        .addReg(tagPtrReg)
+        .addImm(0);
+  
+    if (zeroMem) {
+        BuildMI(LoopMBB, DL, TII->get(RISCV::SD))
+            .addReg(RISCV::X0)
+            .addReg(tagPtrReg)
+            .addImm(0);
+        BuildMI(LoopMBB, DL, TII->get(RISCV::SD))
+            .addReg(RISCV::X0)
+            .addReg(tagPtrReg)
+            .addImm(4);
+        BuildMI(LoopMBB, DL, TII->get(RISCV::SD))
+            .addReg(RISCV::X0)
+            .addReg(tagPtrReg)
+            .addImm(8);
+        BuildMI(LoopMBB, DL, TII->get(RISCV::SD))
+            .addReg(RISCV::X0)
+            .addReg(tagPtrReg)
+            .addImm(12);
+    }
+
+    BuildMI(LoopMBB, DL, TII->get(RISCV::ADDI), actualCntReg)
+        .addReg(realCntReg)
+        .addImm(tagSizeBit);
+    BuildMI(LoopMBB, DL, TII->get(RISCV::BNE))
+        .addReg(loopLimitReg)
+        .addReg(actualCntReg)
+        .addMBB(LoopMBB);    
     LoopMBB->addSuccessor(LoopMBB);
   } else {
-    for (int i = 0; i < num; i++) {
+    for (unsigned i = 0; i < num; i++) {
       BuildMI(LoopMBB, DL, TII->get(RISCV::ST))
           .addReg(tagReg)
           .addReg(basePtr)
-          .addImm(i * tagSize);
+          .addImm(i * tagSizeBit);
+          if (zeroMem) {
+            BuildMI(LoopMBB, DL, TII->get(RISCV::SD))
+                .addReg(RISCV::X0)
+                .addReg(basePtr)
+                .addImm(i * tagSizeBit);
+            BuildMI(LoopMBB, DL, TII->get(RISCV::SD))
+                .addReg(RISCV::X0)
+                .addReg(basePtr)
+                .addImm(i * tagSizeBit + 4);
+            BuildMI(LoopMBB, DL, TII->get(RISCV::SD))
+                .addReg(RISCV::X0)
+                .addReg(basePtr)
+                .addImm(i * tagSizeBit + 8);
+            BuildMI(LoopMBB, DL, TII->get(RISCV::SD))
+                .addReg(RISCV::X0)
+                .addReg(basePtr)
+                .addImm(i * tagSizeBit + 12);
+          }
     }
   }
+  PreLoopMBB->addSuccessor(LoopMBB);
 
   LoopMBB->addSuccessor(DoneMBB);
 #if 0

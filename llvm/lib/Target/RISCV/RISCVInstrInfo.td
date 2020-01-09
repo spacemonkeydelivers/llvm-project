@@ -53,6 +53,7 @@ def riscv_sllw      : SDNode<"RISCVISD::SLLW", SDTIntShiftOp>;
 def riscv_sraw      : SDNode<"RISCVISD::SRAW", SDTIntShiftOp>;
 def riscv_srlw      : SDNode<"RISCVISD::SRLW", SDTIntShiftOp>;
 
+
 //===----------------------------------------------------------------------===//
 // Operand and SDNode transformation definitions.
 //===----------------------------------------------------------------------===//
@@ -1086,21 +1087,19 @@ def ReadCycleWide : Pseudo<(outs GPR:$lo, GPR:$hi), (ins), [], "", "">;
 let usesCustomInserter = 1, hasSideEffects = 0,
 mayLoad = 1, mayStore = 1, hasNoSchedulingInfo = 1 in
 def InsertRandomTag : Pseudo<(outs GPR:$rd),
-                            (ins GPR:$rs1, GPR:$rs2), []>;
+                            (ins GPR:$rs1, GPR:$rs2), [(set GPR:$rd, (int_riscv_irg GPR:$rs1, i32:$rs2))]>;
 def : Pat<(int_riscv_irg GPR:$rs1, i32:$rs2), (InsertRandomTag $rs1, $rs2)>;
 def : Pat<(int_riscv_irg_sp i32:$rs2), (InsertRandomTag X2, $rs2)>;
 
 let usesCustomInserter = 1, hasSideEffects = 0,
 mayLoad = 0, mayStore = 1, hasNoSchedulingInfo = 1 in
 def SetMemoryTag : Pseudo<(outs),
-                          (ins GPR:$rs1, simm12:$rs2), []>;
-def : Pat<(int_riscv_settag GPR:$rs1, i32:$rs2), (SetMemoryTag $rs1, $rs2)>;
-
+                          (ins GPR:$rs1, simm12:$imm), [(int_riscv_settag GPR:$rs1, simm12:$imm)]>;
 let usesCustomInserter = 1, hasSideEffects = 0,
 mayLoad = 0, mayStore = 1, hasNoSchedulingInfo = 1 in
 def SetMemoryTagZero : Pseudo<(outs),
-                              (ins GPR:$rs1, simm12:$rs2), []>;
-def : Pat<(int_riscv_settag_zero GPR:$rs1, i32:$rs2), (SetMemoryTagZero $rs1, $rs2)>;
+                              (ins GPR:$rs1, simm12:$imm), [(int_riscv_settag_zero GPR:$rs1, simm12:$imm)]>;
+
 
 let usesCustomInserter = 1, hasSideEffects = 0,
 mayLoad = 0, mayStore = 0, hasNoSchedulingInfo = 1 in
@@ -1111,7 +1110,7 @@ def : Pat<(int_riscv_tagp GPR:$rs1, GPR:$rs2, i32:$rs3), (TagPointer $rs1, $rs2,
 let usesCustomInserter = 1, hasSideEffects = 0,
 mayLoad = 0, mayStore = 1, hasNoSchedulingInfo = 1 in
 def SetMemoryTagPair : Pseudo<(outs),
-                            (ins GPR:$rs1, GPR:$rs2, GPR:$rs3), []>;
+                            (ins GPR:$rs1, ixlenimm:$rs2, ixlenimm:$rs3), []>;
 def : Pat<(int_riscv_stgp GPR:$rs1, i32:$rs2, i32:$rs3), (SetMemoryTagPair $rs1, $rs2, $rs3)>;
 
 //===----------------------------------------------------------------------===//
