@@ -1118,18 +1118,7 @@ MachineBasicBlock *emitSetMemoryTagPairPseudo(MachineInstr &MI,
 
 MachineBasicBlock *emitTagPointerPseudo(MachineInstr &MI,
                                            MachineBasicBlock *BB) {
-  assert(MI.getOpcode() == RISCV::ReadCycleWide && "Unexpected instruction");
-
-  // To read the 64-bit cycle CSR on a 32-bit target, we read the two halves.
-  // Should the count have wrapped while it was being read, we need to try
-  // again.
-  // ...
-  // read:
-  // rdcycleh x3 # load high word of cycle
-  // rdcycle  x2 # load low word of cycle
-  // rdcycleh x4 # load high word of cycle
-  // bne x3, x4, read # check if high word reads match, otherwise try again
-  // ...
+  assert(MI.getOpcode() == RISCV::TagPointer && "Unexpected instruction");
 
   MachineFunction &MF = *BB->getParent();
   const BasicBlock *LLVM_BB = BB->getBasicBlock();
@@ -1149,28 +1138,58 @@ MachineBasicBlock *emitTagPointerPseudo(MachineInstr &MI,
   BB->addSuccessor(LoopMBB);
 
   MachineRegisterInfo &RegInfo = MF.getRegInfo();
-  unsigned ReadAgainReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-  unsigned LoReg = MI.getOperand(0).getReg();
-  unsigned HiReg = MI.getOperand(1).getReg();
   DebugLoc DL = MI.getDebugLoc();
-
   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
-  BuildMI(LoopMBB, DL, TII->get(RISCV::CSRRS), HiReg)
-      .addImm(RISCVSysReg::lookupSysRegByName("CYCLEH")->Encoding)
-      .addReg(RISCV::X0);
-  BuildMI(LoopMBB, DL, TII->get(RISCV::CSRRS), LoReg)
-      .addImm(RISCVSysReg::lookupSysRegByName("CYCLE")->Encoding)
-      .addReg(RISCV::X0);
-  BuildMI(LoopMBB, DL, TII->get(RISCV::CSRRS), ReadAgainReg)
-      .addImm(RISCVSysReg::lookupSysRegByName("CYCLEH")->Encoding)
-      .addReg(RISCV::X0);
+  
+  unsigned dstPtr = MI.getOperand(0).getReg();
+  unsigned tgtPtr = MI.getOperand(1).getReg();
+  unsigned basePtr = MI.getOperand(2).getReg();
+  unsigned tagOffset = MI.getOperand(3).getImm();
 
-  BuildMI(LoopMBB, DL, TII->get(RISCV::BNE))
-      .addReg(HiReg)
-      .addReg(ReadAgainReg)
-      .addMBB(LoopMBB);
+  unsigned tmpTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::SRLI), tmpTagReg)
+      .addReg(basePtr)
+      .addImm(26);
 
-  LoopMBB->addSuccessor(LoopMBB);
+  unsigned curTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::ANDI), curTagReg)
+      .addReg(tmpTagReg)
+      .addImm(0xf);
+  
+  unsigned newTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::ADDI), newTagReg)
+      .addReg(curTagReg)
+      .addImm(tagOffset);
+  
+  unsigned tmpNewTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::ANDI), tmpNewTagReg)
+      .addReg(newTagReg)
+      .addImm(0xf);
+  
+  unsigned finalNewTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::SLLI), finalNewTagReg)
+      .addReg(tmpNewTagReg)
+      .addImm(26);
+ 
+  unsigned tmpMaskReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::LUI), tmpMaskReg)
+      .addImm(0xf0fff);
+
+  unsigned maskReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::ORI), maskReg)
+      .addReg(tmpMaskReg)
+      .addImm(0xfff);
+  
+  unsigned clearedPtrReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
+  BuildMI(LoopMBB, DL, TII->get(RISCV::AND), clearedPtrReg)
+      .addReg(tgtPtr)
+      .addReg(maskReg);
+
+  BuildMI(LoopMBB, DL, TII->get(RISCV::OR), dstPtr)
+      .addReg(clearedPtrReg)
+      .addReg(finalNewTagReg);
+
+
   LoopMBB->addSuccessor(DoneMBB);
 
   MI.eraseFromParent();
