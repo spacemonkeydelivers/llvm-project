@@ -1288,7 +1288,7 @@ MachineBasicBlock *emitSetMemoryTagPseudo(MachineInstr &MI,
 
   MachineRegisterInfo &RegInfo = MF.getRegInfo();
   unsigned basePtr = MI.getOperand(0).getReg();
-  unsigned tagSize = 16; //MI.getOperand(1).getImm();
+  unsigned tagSize = MI.getOperand(1).getImm();
   const unsigned tagSizeBit = 16;
   const unsigned stThrsh = 1;
 
