@@ -132,14 +132,14 @@ bool RISCV64StackTagging::isInterestingAlloca(const AllocaInst &AI) {
 void RISCV64StackTagging::tagAlloca(AllocaInst *AI, Instruction *InsertBefore,
                                     Value *Ptr, uint64_t Size) {
   IRBuilder<> IRB(InsertBefore);
-  IRB.CreateCall(SetTagFunc, {Ptr, ConstantInt::get(IRB.getInt64Ty(), Size)});
+  IRB.CreateCall(SetTagFunc, {Ptr, ConstantInt::get(IRB.getInt32Ty(), Size)});
 }
 
 void RISCV64StackTagging::untagAlloca(AllocaInst *AI, Instruction *InsertBefore,
                                       uint64_t Size) {
   IRBuilder<> IRB(InsertBefore);
   IRB.CreateCall(SetTagFunc, {IRB.CreatePointerCast(AI, IRB.getInt8PtrTy()),
-                              ConstantInt::get(IRB.getInt64Ty(), Size)});
+                              ConstantInt::get(IRB.getInt32Ty(), Size)});
 }
 
 Instruction *RISCV64StackTagging::insertBaseTaggedPointer(
@@ -164,7 +164,7 @@ Instruction *RISCV64StackTagging::insertBaseTaggedPointer(
   Function *IRG_SP =
       Intrinsic::getDeclaration(F->getParent(), Intrinsic::riscv_irg_sp);
   Instruction *Base =
-      IRB.CreateCall(IRG_SP, {Constant::getNullValue(IRB.getInt64Ty())});
+      IRB.CreateCall(IRG_SP, {Constant::getNullValue(IRB.getInt32Ty())});
   Base->setName("basetag");
   return Base;
 }
@@ -304,7 +304,7 @@ bool RISCV64StackTagging::runOnFunction(Function &Fn) {
         F->getParent(), Intrinsic::riscv_tagp, {Info.AI->getType()});
     Instruction *TagPCall =
         IRB.CreateCall(TagP, {Constant::getNullValue(Info.AI->getType()), Base,
-                              ConstantInt::get(IRB.getInt64Ty(), Info.Tag)});
+                              ConstantInt::get(IRB.getInt32Ty(), Info.Tag)});
     if (Info.AI->hasName())
       TagPCall->setName(Info.AI->getName() + ".tag");
     Info.AI->replaceAllUsesWith(TagPCall);

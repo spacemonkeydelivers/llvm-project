@@ -1056,7 +1056,7 @@ unsigned RISCVTargetLowering::ComputeNumSignBitsForTargetNode(
 
 MachineBasicBlock *emitSetMemoryTagPairPseudo(MachineInstr &MI,
                                               MachineBasicBlock *BB) {
-  assert(MI.getOpcode() == RISCV::ReadCycleWide && "Unexpected instruction");
+  // assert(MI.getOpcode() == RISCV::ReadCycleWide && "Unexpected instruction");
 
   // To read the 64-bit cycle CSR on a 32-bit target, we read the two halves.
   // Should the count have wrapped while it was being read, we need to try
@@ -1288,7 +1288,7 @@ MachineBasicBlock *emitSetMemoryTagPseudo(MachineInstr &MI,
 
   MachineRegisterInfo &RegInfo = MF.getRegInfo();
   unsigned basePtr = MI.getOperand(0).getReg();
-  unsigned tagSize = MI.getOperand(1).getImm();
+  unsigned tagSize = 16; //MI.getOperand(1).getImm();
   const unsigned tagSizeBit = 16;
   const unsigned stThrsh = 4;
 
