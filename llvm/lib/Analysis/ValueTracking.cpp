@@ -3666,6 +3666,8 @@ bool llvm::isIntrinsicReturningPointerAliasingArgumentWithoutCapturing(
     const CallBase *Call) {
   return Call->getIntrinsicID() == Intrinsic::launder_invariant_group ||
          Call->getIntrinsicID() == Intrinsic::strip_invariant_group ||
+         Call->getIntrinsicID() == Intrinsic::riscv_irg ||
+         Call->getIntrinsicID() == Intrinsic::riscv_tagp ||
          Call->getIntrinsicID() == Intrinsic::aarch64_irg ||
          Call->getIntrinsicID() == Intrinsic::aarch64_tagp;
 }
