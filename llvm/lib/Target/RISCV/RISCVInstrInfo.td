@@ -119,6 +119,16 @@ def uimm5 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isUInt<5>(Imm);}]> {
   let DecoderMethod = "decodeUImmOperand<5>";
 }
 
+def simm32t : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<32>(Imm);}]> {
+  let EncoderMethod = "getImmOpValue";
+  let MCOperandPredicate = [{
+    int64_t Imm;
+    if (MCOp.evaluateAsConstantImm(Imm))
+      return isInt<32>(Imm);
+    return MCOp.isBareSymbolRef();
+  }];
+}
+
 def simm12 : Operand<XLenVT>, ImmLeaf<XLenVT, [{return isInt<12>(Imm);}]> {
   let ParserMatchClass = SImmAsmOperand<12>;
   let EncoderMethod = "getImmOpValue";
@@ -1094,17 +1104,17 @@ def : Pat<(int_riscv_irg_sp i32:$rs2), (InsertRandomTag X2, $rs2)>;
 let usesCustomInserter = 1, hasSideEffects = 0,
 mayLoad = 0, mayStore = 1, hasNoSchedulingInfo = 1 in
 def SetMemoryTag : Pseudo<(outs),
-                          (ins GPR:$rs1, simm12:$imm), [(int_riscv_settag GPR:$rs1, simm12:$imm)]>;
+                          (ins GPR:$rs1, simm32t:$imm), [(int_riscv_settag GPR:$rs1, simm32t:$imm)]>;
 let usesCustomInserter = 1, hasSideEffects = 0,
 mayLoad = 0, mayStore = 1, hasNoSchedulingInfo = 1 in
 def SetMemoryTagZero : Pseudo<(outs),
-                              (ins GPR:$rs1, simm12:$imm), [(int_riscv_settag_zero GPR:$rs1, simm12:$imm)]>;
+                              (ins GPR:$rs1, simm32t:$imm), [(int_riscv_settag_zero GPR:$rs1, simm32t:$imm)]>;
 
 
 let usesCustomInserter = 1, hasSideEffects = 0,
 mayLoad = 0, mayStore = 0, hasNoSchedulingInfo = 1 in
 def TagPointer : Pseudo<(outs GPR:$rd),
-                        (ins GPR:$rs1, GPR:$rs2, simm12:$rs3), [(set GPR:$rd, (int_riscv_tagp GPR:$rs1, GPR:$rs2, simm12:$rs3))]>;
+                        (ins GPR:$rs1, GPR:$rs2, simm32t:$rs3), [(set GPR:$rd, (int_riscv_tagp GPR:$rs1, GPR:$rs2, simm32t:$rs3))]>;
 
 let usesCustomInserter = 1, hasSideEffects = 0,
 mayLoad = 0, mayStore = 1, hasNoSchedulingInfo = 1 in
