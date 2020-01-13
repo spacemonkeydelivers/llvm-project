@@ -1146,16 +1146,11 @@ MachineBasicBlock *emitTagPointerPseudo(MachineInstr &MI,
   unsigned basePtr = MI.getOperand(2).getReg();
   unsigned tagOffset = MI.getOperand(3).getImm();
 
-  unsigned tmpTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-  BuildMI(LoopMBB, DL, TII->get(RISCV::SRLI), tmpTagReg)
-      .addReg(basePtr)
-      .addImm(26);
-
   unsigned curTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-  BuildMI(LoopMBB, DL, TII->get(RISCV::ANDI), curTagReg)
-      .addReg(tmpTagReg)
-      .addImm(0xf);
-  
+  BuildMI(LoopMBB, DL, TII->get(RISCV::SRLI), curTagReg)
+      .addReg(basePtr)
+      .addImm(28);
+
   unsigned newTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
   BuildMI(LoopMBB, DL, TII->get(RISCV::ADDI), newTagReg)
       .addReg(curTagReg)
@@ -1169,7 +1164,7 @@ MachineBasicBlock *emitTagPointerPseudo(MachineInstr &MI,
   unsigned finalNewTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
   BuildMI(LoopMBB, DL, TII->get(RISCV::SLLI), finalNewTagReg)
       .addReg(tmpNewTagReg)
-      .addImm(26);
+      .addImm(28);
  
   unsigned tmpMaskReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
   BuildMI(LoopMBB, DL, TII->get(RISCV::LUI), tmpMaskReg)
@@ -1300,14 +1295,10 @@ MachineBasicBlock *emitSetMemoryTagPseudo(MachineInstr &MI,
   DebugLoc DL = MI.getDebugLoc();
   const TargetInstrInfo *TII = MF.getSubtarget().getInstrInfo();
   
-  unsigned tmpTagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-  BuildMI(PreLoopMBB, DL, TII->get(RISCV::SRLI), tmpTagReg)
-      .addReg(basePtr)
-      .addImm(26);
   unsigned tagReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-  BuildMI(PreLoopMBB, DL, TII->get(RISCV::ANDI), tagReg)
-      .addReg(tmpTagReg)
-      .addImm(0xf);
+  BuildMI(PreLoopMBB, DL, TII->get(RISCV::SRLI), tagReg)
+      .addReg(basePtr)
+      .addImm(28);
 
   if (thrshExceeded) {
     unsigned loopLimitReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
@@ -1466,14 +1457,10 @@ MachineBasicBlock *emitInsertRandomTagPseudo(MachineInstr &MI,
   // } end
 
   MachineBasicBlock::iterator Pos = DoneMBB->begin();
-  unsigned tmpTagShiftedReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
-  BuildMI(*DoneMBB, Pos, DL, TII->get(RISCV::ANDI), tmpTagShiftedReg)
-      .addReg(rndReg)
-      .addImm(0xf);
   unsigned tagShiftedReg = RegInfo.createVirtualRegister(&RISCV::GPRRegClass);
   BuildMI(*DoneMBB, Pos, DL, TII->get(RISCV::SLLI), tagShiftedReg)
-      .addReg(tmpTagShiftedReg)
-      .addImm(26);
+      .addReg(rndReg)
+      .addImm(28);
 
   unsigned clearedPtrReg = RISCV::X2;
   if (src1 != RISCV::X2) {
